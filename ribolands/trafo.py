@@ -13,7 +13,7 @@ from struct import pack
 from itertools import combinations, product, islice
 
 import RNA
-from ribolands import RiboLandscape
+from ribolands_script import RiboLandscape
 from ribolands.utils import make_pair_table
 from ribolands.pathfinder import (BPD_CACHE, get_bpd_cache, 
                                   get_guide_graph,
@@ -200,7 +200,7 @@ def open_fraying_helices(seq, ss, free = 6):
     nbrs.add(''.join(nbr))
     return nbrs
 
-def find_fraying_neighbors(seq, md, parents, mfree = 6):
+def find_fraying_neighbors(seq, md, parents, mfree = 6, rev_transcription = False):
     """ 
     Returns:
         dict: new_nodes[parent]=set(neigbors)
@@ -210,7 +210,10 @@ def find_fraying_neighbors(seq, md, parents, mfree = 6):
     new_nodes = dict() 
     for ni in parents:
         # short secondary structure (without its future)
-        sss = ni[0:len(seq)]
+        if not rev_transcription:
+            sss = ni[0:len(seq)]
+        else:
+            sss = ni[-len(seq):]
         assert len(sss + future) == len(parents[0])
         # compute a set of all helix fraying open steps
         opened = open_fraying_helices(seq, sss, mfree)
@@ -218,7 +221,10 @@ def find_fraying_neighbors(seq, md, parents, mfree = 6):
         connected = set() 
         for onbr in opened:
             nbr, _ = fold_exterior_loop(seq, onbr, md)
-            nbr += future
+            if not rev_transcription:
+                nbr += future
+            else:
+                nbr = future + nbr
             connected.add(nbr)
         connected.discard(ni) # remove the parent
         new_nodes[ni] = connected
@@ -261,10 +267,14 @@ class TrafoLandscape(RiboLandscape):
         self.minh = 0 # [dcal/mol] set using t_fast
         self.maxh = 0 # [dcal/mol] set using t_slow
         self.fpath = 0
+        self.rev_transcription = False
 
     @property
     def transcript(self):
-        return self.sequence[0:self._transcript_length]
+        if not self.rev_transcription:
+            return self.sequence[0:self._transcript_length]
+        else:
+            return self.sequence[-self._transcript_length:]
 
     def addnode(self, *kargs, **kwargs):
         """ Add a node with specific tags:
@@ -338,7 +348,7 @@ class TrafoLandscape(RiboLandscape):
     def expand(self, extend = 1, mfree = 6):
         """ Find new secondary structures and determine their neighborhood in the landscape.
 
-        The function adds to types of new structures: 
+        The function adds two types of new structures: 
             1) The mfe structure for the current sequence length.
             2) The helix-fraying of all currently active structures.
 
@@ -359,10 +369,17 @@ class TrafoLandscape(RiboLandscape):
         fc = self.fc
 
         # Calculate MFE of current transcript.
-        mfess, _ = fc.backtrack(len(seq))
-        future = '.' * (len(fseq) - len(seq))
-        mfess = mfess + future
-
+        if not self.rev_transcription:
+            mfess, _ = fc.backtrack(len(seq))
+            future = '.' * (len(fseq) - len(seq))
+            mfess = mfess + future
+        else:
+            # The reversed transcription mode is computationally more expensive because the MFE structure is computed for every transcript length
+            # TODO: make more efficient?, theoretically the same efficiency as in normal mode could be reached with a different backtracking procedure
+            fc_tmp = RNA.fold_compound(seq, self.md)
+            mfess, _ = fc_tmp.mfe()
+            future = '.' * (len(fseq) - len(seq))
+            mfess = future + mfess
 
         # If there is no node because we are in the beginning, add the node.
         if len(self.nodes) == 0: 
@@ -372,7 +389,7 @@ class TrafoLandscape(RiboLandscape):
         else: 
             md = self.md
             parents = list(self.active_local_mins)
-            fraying_nodes = find_fraying_neighbors(seq, md, parents, mfree = 6)
+            fraying_nodes = find_fraying_neighbors(seq, md, parents, mfree = 6, rev_transcription = self.rev_transcription)
 
             # 1) Add all new structures to the set of nodes.
             nn, on = set(), set()
@@ -391,22 +408,32 @@ class TrafoLandscape(RiboLandscape):
                         on.add(fn)
                     self.nodes[fn]['active'] = True
 
-            ndata = {n[0:len(seq)]: d for n, d in self.nodes.items() if d['active']} 
+            if not self.rev_transcription:
+                ndata = {n[0:len(seq)]: d for n, d in self.nodes.items() if d['active']}
+            else:
+                ndata = {n[-len(seq):]: d for n, d in self.nodes.items() if d['active']}
             gnodes, gedges = get_guide_graph(seq, md, ndata.keys())
             assert all(ss != '' for (ss, en) in gnodes)
 
             for (ss, en) in gnodes:
-                if ss+future not in self.nodes:
-                    self.addnode(ss+future, structure = ss+future)
-                    nn.add(ss+future)
-                elif not self.nodes[ss+future]['active']:
-                    on.add(ss+future)
-                self.nodes[ss+future]['active'] = True
+                if not self.rev_transcription:
+                    ss_and_future = ss + future
+                else:
+                    ss_and_future = future + ss
+                if ss_and_future not in self.nodes:
+                    self.addnode(ss_and_future, structure = ss_and_future)
+                    nn.add(ss_and_future)
+                elif not self.nodes[ss_and_future]['active']:
+                    on.add(ss_and_future)
+                self.nodes[ss_and_future]['active'] = True
             ndata = {n: d for n, d in self.nodes.items() if d['active']} 
 
             lgedges = set()
             for (x, y) in gedges:
-                lgedges.add((x+future, y+future))
+                if not self.rev_transcription:
+                    lgedges.add((x+future, y+future))
+                else:
+                    lgedges.add((future+x, future+y))
             gedges = lgedges
 
             # 2) Include edge-data from previous network if nodes are active.

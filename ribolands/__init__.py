@@ -14,6 +14,6 @@ logging.getLogger(__name__).addHandler(logging.NullHandler())
 
 # Main objects
 from ribolands.syswraps import Workflow
-from ribolands.ribolands import RiboLandscape 
+from ribolands.ribolands_script import RiboLandscape 
 #from ribolands.trafo import TrafoLandscape
 

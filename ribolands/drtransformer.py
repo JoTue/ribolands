@@ -181,6 +181,8 @@ def parse_drtrafo_args(parser):
             help = "Start transcription at this nucleotide.")
     trans.add_argument("--stop", type = int, default = None, metavar = '<int>',
             help = "Stop transcription before this nucleotide")
+    trans.add_argument("--reversed-transcription", action = "store_true", 
+            help = "Perform reversed transcription (3' to 5' direction).")
 
     ###########################
     # DrTransformer algorithm #
@@ -425,6 +427,7 @@ def main():
         fdata += "# --t-end: {} sec\n".format(args.t_end)
         fdata += "# --start: {}\n".format(args.start)
         fdata += "# --stop: {}\n".format(args.stop)
+        fdata += "# --reversed-transcription: {}\n".format(args.reversed_transcription)
         fdata += "#\n"
         fdata += "# Algorithm parameters:\n"
         fdata += "# --o-prune: {}\n".format(args.o_prune)
@@ -461,6 +464,7 @@ def main():
     TL.minh = int(round(args.minh*100)) if args.minh else 0
     #TL.maxh = int(round(args.maxh*100)) if args.maxh else 0
     TL._transcript_length = args.start - 1
+    TL.rev_transcription = args.reversed_transcription
 
     tprofile = []
     psites = dict()
@@ -666,7 +670,7 @@ def main():
                 ni = TL.nodes[node]['identity']
                 fdata += f"{tlen:4d} {e:4d} {node[:tlen]} {ne:6.2f} {no:6.4f} ID = {ni}\n"
             write_output(fdata, stdout=(args.stdout == 'log'), fh = lfh)
-        logger.info(f"Transkription profile: {tprofile}\n")
+        logger.info(f"Transcription profile: {tprofile}\n")
 
     #statprof.stop()
     #statprof.display()

@@ -4,7 +4,7 @@ import unittest
 import os
 import RNA
 
-from ribolands import RiboLandscape
+from ribolands.ribolands_script import RiboLandscape
 from ribolands.parser import parse_barriers
 
 SKIP = False
