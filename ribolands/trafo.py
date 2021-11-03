@@ -565,7 +565,10 @@ class TrafoLandscape(RiboLandscape):
                         barstr += ' {:7.2f}'.format(float('nan'))
 
                 # Print structures and neighbors to bfile:
-                bar.write("{:4d} {} {:7.2f} {}\n".format(ni, node[:len(seq)], ne/100, barstr))
+                if not self.rev_transcription:
+                    bar.write("{:4d} {} {:7.2f} {}\n".format(ni, node[:len(seq)], ne/100, barstr))
+                else:
+                    bar.write("{:4d} {} {:7.2f} {}\n".format(ni, node[-len(seq):], ne/100, barstr))
 
                 # Add ni occupancy to p0
                 if no > 0:

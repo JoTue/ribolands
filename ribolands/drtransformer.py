@@ -482,6 +482,10 @@ def main():
     # ~~~~~~~~~ #
     #############
     for tlen in range(args.start, args.stop):
+        # spacer for reversed-transcription output
+        spacer = " " * (args.stop - tlen - 1)
+
+        # logger.info(f'{TL.transcript=}')
         time = TL.total_time
 
         logger.info(f'** Transcription step {tlen} **')
@@ -522,9 +526,15 @@ def main():
             ne = TL.nodes[node]['energy']/100
             no = TL.nodes[node]['occupancy']
             ni = TL.nodes[node]['identity']
-            ss = node[:tlen]
+            if not args.reversed_transcription:
+                ss = node[:tlen]
+            else:
+                ss = node[-tlen:]
             if args.stdout == 'log' or lfh:
-                fdata = f"{tlen:4d} {1:4d} {ss} {ne:6.2f} [{no:6.4f} -> {no:6.4f}] ID = {ni}\n"
+                if not args.reversed_transcription:
+                    fdata = f"{tlen:4d} {1:4d} {ss} {ne:6.2f} [{no:6.4f} -> {no:6.4f}] ID = {ni}\n"
+                else:
+                    fdata = f"{tlen:4d} {1:4d} {spacer + ss} {ne:6.2f} [{no:6.4f} -> {no:6.4f}] ID = {ni}\n"
                 write_output(fdata, stdout = (args.stdout == 'log'), fh = lfh)
             if args.stdout == 'drf' or dfh:
                 #if ni not in all_courses:
@@ -532,7 +542,10 @@ def main():
                 #    fdata = f"{ni} {time:03.9f} {0:03.4f} {ss} {ne:6.2f}\n"
                 #    write_output(fdata, stdout = (args.stdout == 'drf'), fh = dfh)
                 all_courses[ni] = [(time + _t8, 1)]
-                fdata = f"{ni} {time+_t8:03.9f} {no:03.4f} {ss} {ne:6.2f}\n"
+                if not args.reversed_transcription:
+                    fdata = f"{ni} {time+_t8:03.9f} {no:03.4f} {ss} {ne:6.2f}\n"
+                else:
+                    fdata = f"{ni} {time+_t8:03.9f} {no:03.4f} {spacer + ss} {ne:6.2f}\n"
                 write_output(fdata, stdout = (args.stdout == 'drf'), fh = dfh)
             TL.total_time += _t8
             continue
@@ -592,7 +605,10 @@ def main():
                     lmins = [TL.nodes[n]['identity'] for n in sorted(mapping[node], key = lambda x: TL.nodes[x]['identity'])]
                     if lmins:
                         ni +=  f" -> {', '.join(lmins)}"
-                fdata = f"{tlen:4d} {e:4d} {node[:tlen]} {ne:6.2f} [{po:6.4f} -> {no:6.4f}] ID = {ni}\n"
+                if not args.reversed_transcription:
+                    fdata = f"{tlen:4d} {e:4d} {node[:tlen]} {ne:6.2f} [{po:6.4f} -> {no:6.4f}] ID = {ni}\n"
+                else:
+                    fdata = f"{tlen:4d} {e:4d} {spacer + node[-tlen:]} {ne:6.2f} [{po:6.4f} -> {no:6.4f}] ID = {ni}\n"
                 write_output(fdata, stdout = (args.stdout == 'log'), fh = lfh)
 
         if args.stdout == 'drf' or dfh:
@@ -616,7 +632,10 @@ def main():
                 #    else:
                 #        all_courses[ni] = []
                 all_courses[ni] = [(tt, occu)]
-                fdata = f"{ni} {tt:03.9f} {occu:03.4f} {node[:tlen]} {ne:6.2f}\n"
+                if not args.reversed_transcription:
+                    fdata = f"{ni} {tt:03.9f} {occu:03.4f} {node[:tlen]} {ne:6.2f}\n"
+                else:
+                    fdata = f"{ni} {tt:03.9f} {occu:03.4f} {spacer + node[-tlen:]} {ne:6.2f}\n"
                 write_output(fdata, stdout = (args.stdout == 'drf'), fh = dfh)
                 lt = tt
         stime = datetime.now()
@@ -661,14 +680,20 @@ def main():
                 #nids = [TL.nodes[n]['identity'] for n in sorted(plot_cgm[node], key = lambda x: TL.nodes[x]['identity'])]
                 #if nids:
                 #    ni +=  f" + {' + '.join(nids)}"
-                fdata += f"{tlen:4d} {e:4d} {node[:tlen]} {ne:6.2f} {no:6.4f} ID = {ni}\n"
+                if not args.reversed_transcription:
+                    fdata += f"{tlen:4d} {e:4d} {node[:tlen]} {ne:6.2f} {no:6.4f} ID = {ni}\n"
+                else:
+                    fdata += f"{tlen:4d} {e:4d} {spacer + node[-tlen:]} {ne:6.2f} {no:6.4f} ID = {ni}\n"
             write_output(fdata, stdout = (args.stdout == 'log'), fh = lfh)
         else:
             for e, node in enumerate(sorted(TL.active_local_mins, key = lambda x: TL.nodes[x]['energy']), 1):
                 ne = TL.nodes[node]['energy']/100
                 no = TL.nodes[node]['occupancy']
                 ni = TL.nodes[node]['identity']
-                fdata += f"{tlen:4d} {e:4d} {node[:tlen]} {ne:6.2f} {no:6.4f} ID = {ni}\n"
+                if not args.reversed_transcription:
+                    fdata += f"{tlen:4d} {e:4d} {node[:tlen]} {ne:6.2f} {no:6.4f} ID = {ni}\n"
+                else:
+                    fdata += f"{tlen:4d} {e:4d} {spacer + node[-tlen:]} {ne:6.2f} {no:6.4f} ID = {ni}\n"
             write_output(fdata, stdout=(args.stdout == 'log'), fh = lfh)
         logger.info(f"Transcription profile: {tprofile}\n")
 
